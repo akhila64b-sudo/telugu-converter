@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telugu Document to PDF Converter</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+        }
+        h2 { color: #1a202c; margin-bottom: 8px; }
+        p { color: #718096; font-size: 14px; margin-bottom: 24px; }
+        .drop-zone {
+            border: 2px dashed #4299e1;
+            border-radius: 8px;
+            padding: 30px;
+            background-color: #ebf8ff;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background 0.2s;
+            display: block;
+        }
+        .drop-zone:hover { background-color: #e2e8f0; }
+        input[type="file"] { display: none; }
+        .btn {
+            background-color: #319795;
+            color: #ffffff;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #2c7a7b; }
+        .flash { color: #e53e3e; margin-bottom: 16px; font-size: 14px; }
+        .file-label { font-weight: 600; color: #2d3748; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>తెలుగు DOC → PDF Converter</h2>
+    <p>100% Font Preserved Output (No Box Errors)</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form action="/" method="post" enctype="multipart/form-data">
+        <label for="document" class="drop-zone">
+            <div>📂 Click to select your Telugu Word File (.doc / .docx)</div>
+            <div id="file-name" class="file-label"></div>
+        </label>
+        <input type="file" name="document" id="document" accept=".doc,.docx,.rtf" required onchange="updateFileName()">
+        <button type="submit" class="btn">Convert to PDF</button>
+    </form>
+</div>
+
+<script>
+function updateFileName() {
+    const input = document.getElementById('document');
+    const label = document.getElementById('file-name');
+    if (input.files.length > 0) {
+        label.textContent = "Selected: " + input.files[0].name;
+    }
+}
+</script>
+
+</body>
+</html>
