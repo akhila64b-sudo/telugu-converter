@@ -1,13 +1,16 @@
 # Use an official lightweight Python image
 FROM python:3.10-slim
 
-# Install LibreOffice, font utilities, and core font packages
+# Install LibreOffice, font utilities, and complete symbol/emoji packages
 RUN apt-get update && apt-get install -y \
     libreoffice \
     fontconfig \
     fonts-dejavu \
+    fonts-noto \
+    fonts-noto-color-emoji \
+    fonts-opensymbol \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt-get/lists/*
 
 # Set working directory inside the container
 WORKDIR /app
@@ -19,12 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all project files into the container
 COPY . .
 
-# Copy all custom Telugu and Anu Script fonts into system font directory and update cache
+# Copy Telugu, Anu Script, and custom TTF fonts into system font directory and update cache
 RUN mkdir -p /usr/share/fonts/truetype/custom && \
-    cp fonts/* /usr/share/fonts/truetype/custom/ 2>/dev/null || true && \
+    cp -r fonts/* /usr/share/fonts/truetype/custom/ 2>/dev/null || true && \
     fc-cache -f -v
 
-# Expose port 10000 for Render
+# Expose port for Render
 EXPOSE 10000
 
 # Start Gunicorn server with 300-second timeout for large document processing
