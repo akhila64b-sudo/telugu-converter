@@ -363,15 +363,19 @@
 
             let progress = 0;
             const interval = setInterval(() => {
-                if (progress < 95) {
-                    progress += Math.floor(Math.random() * 12) + 5;
-                    if (progress > 95) progress = 95;
+                if (progress < 90) {
+                    progress += Math.floor(Math.random() * 8) + 4;
+                    if (progress > 90) progress = 90;
+                    progressBarFill.style.width = progress + '%';
+                    progressPercent.textContent = progress + '%';
+                } else if (progress < 99) {
+                    progress += 1;
                     progressBarFill.style.width = progress + '%';
                     progressPercent.textContent = progress + '%';
                 } else {
                     clearInterval(interval);
                 }
-            }, 250);
+            }, 300);
         });
     </script>
 </body>
