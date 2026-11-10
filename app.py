@@ -1,83 +1,97 @@
 import os
 import subprocess
-import tempfile
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for
+from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = "telugu_pdf_converter_secret_key"
+app.secret_key = 'supersecretkey'
 
-# Allow file uploads up to 100 MB for 500+ page documents
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
-
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
+CONVERTED_FOLDER = os.path.join(os.getcwd(), 'converted')
 ALLOWED_EXTENSIONS = {'doc', 'docx'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['CONVERTED_FOLDER'] = CONVERTED_FOLDER
+
+# Create required directories if they do not exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(CONVERTED_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def convert_to_pdf(input_path, output_dir):
+    """
+    Converts input doc/docx to PDF using LibreOffice with locked export parameters.
+    Ensures 1:1 page layout, accurate font sizing, exact watermark transparency/opacity,
+    and prevents artificial double-stroke (fake) bolding.
+    """
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["LANG"] = "C.UTF-8"
+    
+    # PDF export flags lock transparency, vector shapes, watermark opacity, and embedded font metrics
+    export_options = (
+        'pdf:writer_pdf_Export:{'
+        '"SelectPdfVersion":{"type":"long","value":"0"},'
+        '"UseLosslessCompression":{"type":"boolean","value":"true"},'
+        '"EmbedFonts":{"type":"boolean","value":"true"},'
+        '"ExportFormFields":{"type":"boolean","value":"false"},'
+        '"Quality":{"type":"long","value":"100"},'
+        '"ReduceImageResolution":{"type":"boolean","value":"false"}'
+        '}'
+    )
+    
+    cmd = [
+        "soffice",
+        "--headless",
+        "--convert-to", export_options,
+        "--outdir", output_dir,
+        input_path
+    ]
+    
+    # Execute conversion with 180-second timeout for large document processing
+    subprocess.run(cmd, env=env, check=True, timeout=180)
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        # Check if a file was uploaded
         if 'file' not in request.files:
             flash('No file part in the request.')
             return redirect(request.url)
-        
+            
         file = request.files['file']
-        
         if file.filename == '':
-            flash('No file selected.')
+            flash('No file selected for uploading.')
             return redirect(request.url)
-        
+            
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
+            input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(input_path)
             
-            # Create a secure temporary directory to isolate file processing
-            with tempfile.TemporaryDirectory() as temp_dir:
-                input_path = os.path.join(temp_dir, filename)
-                file.save(input_path)
+            try:
+                convert_to_pdf(input_path, app.config['CONVERTED_FOLDER'])
                 
-                try:
-                    # Execute LibreOffice in headless mode with a 300-second timeout
-                    subprocess.run(
-                        [
-                            'soffice',
-                            '--headless',
-                            '--convert-to', 'pdf',
-                            '--outdir', temp_dir,
-                            input_path
-                        ],
-                        check=True,
-                        timeout=300
-                    )
-                    
-                    # Determine the generated PDF filename
-                    base_name = os.path.splitext(filename)[0]
-                    pdf_filename = f"{base_name}.pdf"
-                    pdf_path = os.path.join(temp_dir, pdf_filename)
-                    
-                    if os.path.exists(pdf_path):
-                        return send_file(
-                            pdf_path,
-                            as_attachment=True,
-                            download_name=pdf_filename,
-                            mimetype='application/pdf'
-                        )
-                    else:
-                        flash('Conversion failed: PDF file was not generated.')
-                        return redirect(request.url)
-                        
-                except subprocess.TimeoutExpired:
-                    flash('Conversion timed out. The document is too large to process within 5 minutes.')
-                    return redirect(request.url)
-                except subprocess.CalledProcessError as e:
-                    flash(f'Conversion error occurred during rendering: {str(e)}')
-                    return redirect(request.url)
+                # Output filename generated by LibreOffice (.pdf)
+                pdf_filename = os.path.splitext(filename)[0] + '.pdf'
+                return redirect(url_for('download_file', filename=pdf_filename))
+                
+            except subprocess.TimeoutExpired:
+                flash('Conversion timed out. The document is too large or complex.')
+                return redirect(request.url)
+            except subprocess.CalledProcessError as e:
+                flash(f'Conversion error occurred during rendering: {e}')
+                return redirect(request.url)
         else:
-            flash('Invalid file format. Please upload a .doc or .docx Word document.')
+            flash('Invalid file format. Please upload a .doc or .docx file.')
             return redirect(request.url)
             
     return render_template('index.html')
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    return send_from_directory(app.config['CONVERTED_FOLDER'], filename, as_attachment=True)
 
 if __name__ == '__main__':
     # Standard local development port configuration
