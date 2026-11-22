@@ -22,10 +22,9 @@ def allowed_file(filename):
 
 def fix_document_symbols(docx_path):
     """
-    Scans the DOCX file for legacy font mappings or alternate character encodings for:
-    1. Om Symbol (🕉)
-    2. Phone / Call Symbols (☎, 📞, 📱)
-    Replaces legacy Wingdings/Symbol font characters with standard Unicode.
+    Scans the DOCX file for symbol mappings:
+    1. Phone / Call Symbols (☎, 📞, 📱)
+    2. Om Symbol (Replaces purple emoji 🕉 and legacy font codes with plain text ॐ)
     """
     try:
         doc = Document(docx_path)
@@ -38,12 +37,11 @@ def fix_document_symbols(docx_path):
             '\u260E': '☎',
             '\u260F': '📞',
             
-            # Devanagari, Telugu, and custom font Om variations
-            '\u0950': '🕉',   # Devanagari Om (ॐ)
-            '\u0C00': '🕉',   # Telugu Om / Candrabindu
-            'ॐ': '🕉',        # Text Devanagari Om
-            '🕉': '🕉',       # Universal Emoji Om
-            '\uFD3F': '🕉',   # Custom mapped legacy font Om
+            # Map ALL Om variations (including the purple emoji 🕉) to plain text Devanagari Om (ॐ)
+            '🕉': 'ॐ',        # Replaces violet box emoji Om with plain text Om
+            '\u0C00': 'ॐ',   # Telugu Candrabindu/Om
+            '\u0950': 'ॐ',   # Standard Devanagari Om
+            '\uFD3F': 'ॐ',   # Legacy font Om
         }
 
         # Process standard body paragraphs
