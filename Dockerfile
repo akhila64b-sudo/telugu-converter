@@ -1,34 +1,30 @@
-# Use an official lightweight Python image
 FROM python:3.10-slim
 
-# Install LibreOffice, font utilities, and complete symbol/emoji packages
-RUN apt-get update && apt-get install -y \
+# Enable contrib repo for font packages
+RUN echo "deb http://deb.debian.org/debian bookworm main contrib" > /etc/apt/sources.list.d/contrib.list
+
+# Install LibreOffice and essential fonts
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
     fontconfig \
-    fonts-dejavu \
     fonts-noto \
     fonts-noto-color-emoji \
     fonts-opensymbol \
-    curl \
     && rm -rf /var/lib/apt-get/lists/*
 
-# Set working directory inside the container
 WORKDIR /app
 
-# Copy dependency requirements and install Python packages
+# Copy and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all project files into the container
+# Copy application files
 COPY . .
 
-# Copy Telugu, Anu Script, and custom TTF fonts into system font directory and update cache
+# Register custom fonts
 RUN mkdir -p /usr/share/fonts/truetype/custom && \
-    cp -r fonts/* /usr/share/fonts/truetype/custom/ 2>/dev/null || true && \
-    fc-cache -f -v
+    cp fonts/* /usr/share/fonts/truetype/custom/ 2>/dev/null || true && \
+    fc-cache -f
 
-# Expose port for Render
-EXPOSE 10000
-
-# Start Gunicorn server with 300-second timeout for large document processing
-CMD ["gunicorn", "--timeout", "300", "-w", "2", "-b", "0.0.0.0:10000", "app:app"]
+# Start Gunicorn dynamically reading Render's PORT environment variable
+CMD sh -c "gunicorn --timeout 300 -w 2 -b 0.0.0.0:${PORT:-10000} app:app"

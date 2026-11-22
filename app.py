@@ -22,36 +22,69 @@ def allowed_file(filename):
 
 def fix_document_symbols(docx_path):
     """
-    Scans the DOCX file for symbol mappings:
-    1. Phone / Call Symbols (☎, 📞, 📱)
-    2. Om Symbol (Replaces purple emoji 🕉 and legacy font codes with plain text ॐ)
+    Scans DOCX files and standardizes legacy font codes, custom TTF symbols, 
+    and color emoji glyphs into universal plain-text vector Unicode characters.
     """
     try:
         doc = Document(docx_path)
         
         symbol_map = {
-            # Legacy Wingdings phone/call characters
-            '\xF0\x28': '☎',
-            '\xF0\x29': '📞',
-            '\xF0\x2A': '📱',
-            '\u260E': '☎',
-            '\u260F': '📞',
-            
-            # Map ALL Om variations (including the purple emoji 🕉) to plain text Devanagari Om (ॐ)
-            '🕉': 'ॐ',        # Replaces violet box emoji Om with plain text Om
+            # --- 1. DEVOTIONAL & RELIGIOUS SYMBOLS ---
+            '🕉': 'ॐ',        # Replace purple emoji Om with plain Devanagari Om
             '\u0C00': 'ॐ',   # Telugu Candrabindu/Om
             '\u0950': 'ॐ',   # Standard Devanagari Om
-            '\uFD3F': 'ॐ',   # Legacy font Om
+            '\uFD3F': 'ॐ',   # Custom mapped legacy font Om
+            '\u5355': '卐',   # Standard Swastika
+            '卐': '卐',
+            '\u0970': 'ੴ',   # Ek Onkar
+
+            # --- 2. CONTACT & OFFICE SYMBOLS ---
+            '\xF0\x28': '☎', # Wingdings Phone
+            '\xF0\x29': '📞', # Wingdings Handset
+            '\xF0\x2A': '📱', # Wingdings Mobile
+            '\u260E': '☎',   # Landline Phone
+            '\u260F': '📞',   # Call Icon
+            '\u2709': '✉',   # Envelope / Mail
+            '\xF0\x41': '✉', # Wingdings Mail
+            '📍': '📍',       # Location Pin
+            '📞': '📞',
+            '📱': '📱',
+            '☎': '☎',
+            '✉': '✉',
+            
+            # --- 3. GENERAL BULLETS & UI ICONS ---
+            '\xF0\xFC': '✓', # Wingdings Checkmark
+            '\xF0\xFE': '☑', # Wingdings Boxed Checkmark
+            '\xF0\xE0': '➔', # Wingdings Right Arrow
+            '\u2713': '✓',   # Standard Checkmark
+            '\u2714': '✔',   # Heavy Checkmark
+            '\u2605': '★',   # Solid Star
+            '\u2606': '☆',   # Outline Star
+            '\u2022': '•',   # Bullet Point
+            '\xF0\xA7': '•', # Wingdings Bullet
         }
 
-        # Process standard body paragraphs
+        # Fonts that trigger fallback boxes on Linux if not explicitly mapped
+        problematic_fonts = [
+            'Wingdings', 'Wingdings 2', 'Wingdings 3', 
+            'Webdings', 'Symbol', 'GanpatiBappa', 
+            'Priyanka', 'Dineleve'
+        ]
+
+        def process_run(run):
+            # Neutralize problematic legacy font assignments so system text fonts handle rendering
+            if run.font.name in problematic_fonts:
+                run.font.name = 'Noto Sans'
+            
+            # Replace mapped symbol characters with clean Unicode text
+            for old_char, new_char in symbol_map.items():
+                if old_char in run.text:
+                    run.text = run.text.replace(old_char, new_char)
+
+        # Process main document body paragraphs
         for p in doc.paragraphs:
             for run in p.runs:
-                if run.font.name in ['Wingdings', 'Wingdings 2', 'Wingdings 3', 'Symbol', 'GanpatiBappa']:
-                    run.font.name = 'Noto Color Emoji'
-                for old_char, new_char in symbol_map.items():
-                    if old_char in run.text:
-                        run.text = run.text.replace(old_char, new_char)
+                process_run(run)
 
         # Process table cells
         for table in doc.tables:
@@ -59,18 +92,13 @@ def fix_document_symbols(docx_path):
                 for cell in row.cells:
                     for p in cell.paragraphs:
                         for run in p.runs:
-                            if run.font.name in ['Wingdings', 'Wingdings 2', 'Wingdings 3', 'Symbol', 'GanpatiBappa']:
-                                run.font.name = 'Noto Color Emoji'
-                            for old_char, new_char in symbol_map.items():
-                                if old_char in run.text:
-                                    run.text = run.text.replace(old_char, new_char)
+                            process_run(run)
 
         doc.save(docx_path)
     except Exception as e:
         print(f"Symbol pre-processing skipped: {e}")
 
 def convert_to_pdf(input_path, output_dir):
-    # Execute symbol normalization on .docx files prior to rendering
     if input_path.endswith('.docx'):
         fix_document_symbols(input_path)
 
@@ -140,4 +168,5 @@ def download_file(filename):
     return response
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000, debug=False)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False)
